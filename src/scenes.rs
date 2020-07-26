@@ -1,12 +1,17 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use sdl2::{rect::Rect, render::Canvas, video::Window};
+use sdl2::{
+    pixels::Color,
+    rect::Rect,
+    render::Canvas,
+    render::TextureCreator,
+    ttf::Font,
+    video::{Window, WindowContext},
+};
 
-use crate::components::Position;
 use crate::{
-    components::ComponentStore, fov::fov, game_map::GameMap, tileset::Tileset,
-    WindowInfo,
+    components::ComponentStore, game_map::GameMap, tileset::Tileset, WindowInfo,
 };
 
 pub struct SceneBuilder {
@@ -59,6 +64,141 @@ pub struct Scene {
     pub game_map: GameMap,
     pub components: ComponentStore,
     pub player: usize,
+}
+
+impl Scene {
+    fn render_map(
+        &mut self,
+        canvas: &mut Canvas<Window>,
+        tileset: &mut Tileset,
+        column_count: usize,
+        start_x: i32,
+    ) -> Result<(), Box<dyn Error>> {
+        let tile_width = tileset.tile_info.width as i32;
+        let tile_height = tileset.tile_info.height as i32;
+
+        let mut x = start_x;
+
+        let mut y = 0 - tile_height;
+
+        let mut dest_rect =
+            Rect::new(x, y, tileset.tile_info.width, tileset.tile_info.height);
+
+        for (i, render_cell) in self.game_map.render_map.iter().enumerate() {
+            if i % column_count == 0 {
+                x = start_x;
+                y += tile_height;
+            }
+
+            if render_cell.lit || render_cell.visited {
+                if render_cell.visited && !render_cell.lit {
+                    tileset.texture.set_color_mod(50, 50, 50);
+                } else {
+                    tileset.texture.set_color_mod(250, 250, 250);
+                };
+
+                dest_rect.set_x(x);
+                dest_rect.set_y(y);
+
+                canvas.copy(
+                    &tileset.texture,
+                    tileset.tile_codes[render_cell.sprite_code as usize]
+                        .to_owned(),
+                    dest_rect,
+                )?;
+            }
+
+            x += tile_width;
+        }
+
+        Ok(())
+    }
+
+    fn render_ui(
+        &mut self,
+        texture_creator: &TextureCreator<WindowContext>,
+        canvas: &mut Canvas<Window>,
+        font: &mut Font,
+        start_x: i32,
+        start_y: i32,
+    ) -> Result<(), Box<dyn Error>> {
+        let text = String::from("health");
+        let f_surface = font.render(&text).solid(Color::RGB(0, 0, 0))?;
+        let text = texture_creator.create_texture_from_surface(&f_surface)?;
+        let text_width = f_surface.width();
+        let text_height = f_surface.height();
+
+        let percent =
+            if let Some(health) = self.components.health.get(&self.player) {
+                let max = health.max_value;
+                let cur = health.cur_value;
+
+                let percent = (max / cur) * 100;
+
+                percent as u32
+            } else {
+                return Ok(());
+            };
+
+        let max_bar_value = 240;
+
+        let max_bar =
+            Rect::new(start_x, start_y, max_bar_value, text_height + 4);
+
+        canvas.set_draw_color(Color::RGB(50, 50, 50));
+        canvas.fill_rect(max_bar)?;
+
+        println!("{} {}", percent, max_bar_value);
+        let percent = (percent * max_bar_value) / 100;
+
+        let percent_bar = Rect::new(start_x, start_y, percent, text_height + 4);
+
+        canvas.set_draw_color(Color::RGB(200, 50, 50));
+        canvas.fill_rect(percent_bar)?;
+
+        let text_rect =
+            Rect::new(start_x, start_y + 2, text_width, text_height);
+
+        canvas.copy(&text, None, text_rect)?;
+
+        Ok(())
+    }
+
+    pub fn render_scene(
+        &mut self,
+        texture_creator: &TextureCreator<WindowContext>,
+        canvas: &mut Canvas<Window>,
+        font: &mut Font,
+        tileset: &mut Tileset,
+        _window_info: &WindowInfo,
+    ) -> Result<(), Box<dyn Error>> {
+        let render_map = &mut self.game_map.render_map;
+        let start_x = 0;
+
+        // add the entitys to the render_map
+        for (key, pos) in self.components.position.iter() {
+            if let Some(ent) = self.components.render.get(&key) {
+                let cell = &mut render_map[pos.index];
+
+                cell.visible = ent.visible;
+                cell.sprite_code = ent.sprite_code;
+            }
+        }
+
+        let column_count = self.game_map.map_info.column_count;
+
+        self.render_map(canvas, tileset, column_count, start_x)?;
+
+        let tile_width = tileset.tile_info.width as i32;
+
+        let ui_start_x = start_x + (column_count as i32 * tile_width) + 5;
+
+        let ui_start_y = 5;
+
+        self.render_ui(texture_creator, canvas, font, ui_start_x, ui_start_y)?;
+
+        Ok(())
+    }
 }
 
 pub struct SceneManager {
@@ -118,77 +258,5 @@ impl SceneManager {
         } else {
             panic!("scene dose not exist");
         }
-    }
-
-    pub fn render_scene(
-        &mut self,
-        canvas: &mut Canvas<Window>,
-        tileset: &Tileset,
-        _window_info: &WindowInfo,
-    ) -> Result<(), Box<dyn Error>> {
-        let scene = self.get_current_scene_mut();
-
-        let tile_width = tileset.tile_info.width as i32;
-        let tile_height = tileset.tile_info.height as i32;
-
-        let column_count = scene.game_map.map_info.column_count;
-
-        let start_x = 0;
-
-        let mut x = start_x;
-        let mut y = 0 - tile_height as i32;
-
-        let mut dest_rect =
-            Rect::new(x, y, tileset.tile_info.width, tileset.tile_info.height);
-
-        let render_map = &mut scene.game_map.render_map;
-
-        let mut player_pos = &Position { index: 0 };
-
-        // add the entitys to the render_map
-        for (key, pos) in scene.components.position.iter() {
-            if let Some(ent) = scene.components.render.get(&key) {
-                let cell = &mut render_map[pos.index];
-
-                cell.visible = ent.visible;
-                cell.sprite_code = ent.sprite_code;
-            }
-
-            if *key == scene.player {
-                player_pos = pos;
-            }
-        }
-
-        let cx = player_pos.index % 20;
-        let cy = player_pos.index / 20;
-
-        for c in render_map.iter_mut() {
-            c.lit = false;
-        }
-
-        fov(render_map, (cx, cy));
-
-        for (i, render_cell) in scene.game_map.render_map.iter().enumerate() {
-            if i % column_count == 0 {
-                x = start_x;
-                y += tile_height;
-            }
-
-            if render_cell.lit || render_cell.visited {
-                dest_rect.set_x(x);
-                dest_rect.set_y(y);
-
-                canvas.copy(
-                    &tileset.texture,
-                    tileset.tile_codes[render_cell.sprite_code as usize]
-                        .to_owned(),
-                    dest_rect,
-                )?;
-            }
-
-            x += tile_width;
-        }
-
-        Ok(())
     }
 }

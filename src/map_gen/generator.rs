@@ -62,6 +62,7 @@ impl MapGen {
                 &mut rng,
                 game_map.map_info.column_count,
                 game_map.map_info.row_count,
+                game_map.map_info.total_count,
             ),
         };
 

@@ -172,6 +172,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5317f7588f0a5078ee60ef675ef96735a1442132dc645eb1d12c018620ed8cd3"
 
 [[package]]
+name = "sprite_fight"
+version = "0.1.0"
+dependencies = [
+ "num_enum",
+ "rand",
+ "sdl2",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,15 +189,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
-]
-
-[[package]]
-name = "time_game"
-version = "0.1.0"
-dependencies = [
- "num_enum",
- "rand",
- "sdl2",
 ]
 
 [[package]]

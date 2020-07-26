@@ -26,8 +26,13 @@ pub struct Selected {
     pub entity: Option<usize>,
 }
 
+pub struct Name {
+    pub value: String,
+}
+
 pub struct Health {
-    pub value: isize,
+    pub max_value: isize,
+    pub cur_value: isize,
 }
 
 pub struct ComponentStore {
@@ -36,6 +41,7 @@ pub struct ComponentStore {
     pub selected: HashMap<usize, Selected>,
     pub position: HashMap<usize, Position>,
     pub terrain: HashMap<usize, Terrain>,
+    pub name: HashMap<usize, Name>,
 }
 
 impl Default for ComponentStore {
@@ -46,6 +52,7 @@ impl Default for ComponentStore {
             selected: HashMap::new(),
             position: HashMap::new(),
             terrain: HashMap::new(),
+            name: HashMap::new(),
         }
     }
 }

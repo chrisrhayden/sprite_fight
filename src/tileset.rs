@@ -253,37 +253,41 @@ pub struct TileInfo {
     pub row_count: u32,
     pub width: u32,
     pub height: u32,
+    pub orig_w: u32,
+    pub orig_h: u32,
 }
 
 fn make_tile_codes(tile_map: &TileInfo) -> Vec<Rect> {
-    let x_start = 0;
     let mut tile_codes = Vec::new();
+
     let total_count = tile_map.total_count as usize;
     let row_count = tile_map.row_count as usize;
-    let tile_offset: i32 = tile_map.width as i32;
 
-    let mut x: i32 = x_start;
+    let tile_w: i32 = tile_map.orig_w as i32;
+    let tile_h: i32 = tile_map.orig_h as i32;
+
+    let mut x: i32 = 0;
     // we start with y negative the offset to when its incremented by the
     // i % map_cols condition on the first loop y will be 0
-    let mut y: i32 = 0 - tile_offset;
+    let mut y: i32 = 0 - tile_h;
 
     for i in 0..total_count {
         // we need figure out when to move to the next row and if we test
         // after we will be trying to mod an odd number
         if i % row_count == 0 {
             // reset the x axis
-            x = x_start;
+            x = 0;
             // move one row down
-            y += tile_offset;
+            y += tile_h;
         }
 
-        let new_r = Rect::new(x, y, tile_map.width, tile_map.height);
+        let new_r = Rect::new(x, y, tile_map.orig_w, tile_map.orig_h);
 
         // add it to the tile array
         tile_codes.push(new_r);
 
         // move to the next x tile
-        x += tile_offset;
+        x += tile_w;
     }
 
     tile_codes

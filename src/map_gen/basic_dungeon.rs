@@ -73,10 +73,11 @@ pub fn basic_gen(
     rng: &mut ThreadRng,
     column_count: usize,
     row_count: usize,
+    total_tiles: usize,
 ) -> (Vec<SpriteCode>, (usize, usize)) {
     let mut sprite_map: Vec<SpriteCode> = vec![];
 
-    for _ in 0..(column_count * row_count) {
+    for _ in 0..total_tiles {
         sprite_map.push(SpriteCode::Building1);
     }
 

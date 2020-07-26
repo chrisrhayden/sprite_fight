@@ -1,4 +1,4 @@
-use crate::game_map::RenderCell;
+use crate::game_map::{GameMap, RenderCell};
 
 const MULT: [[isize; 8]; 4] = [
     [1, 0, 0, -1, -1, 0, 0, 1],
@@ -19,15 +19,15 @@ struct ShadowData {
     row_count: isize,
 }
 
-pub fn fov(render_map: &mut Vec<RenderCell>, view_point: (usize, usize)) {
-    let index = view_point.0 + (20 * view_point.1);
+pub fn fov(game_map: &mut GameMap, view_point: (usize, usize)) {
+    let index = view_point.0 + (game_map.map_info.column_count * view_point.1);
 
-    render_map[index].lit = true;
+    game_map.render_map[index].lit = true;
 
     for region in 0..8 {
         let shadow_data = ShadowData {
-            column_count: 20,
-            row_count: 20,
+            column_count: game_map.map_info.column_count as isize,
+            row_count: game_map.map_info.row_count as isize,
             view_x: view_point.0 as isize,
             view_y: view_point.1 as isize,
             radius: 10,
@@ -37,7 +37,13 @@ pub fn fov(render_map: &mut Vec<RenderCell>, view_point: (usize, usize)) {
             yy: MULT[3][region],
         };
 
-        recursive_shadowcasting(render_map, &shadow_data, 1, 1.0f32, 0.0f32);
+        recursive_shadowcasting(
+            &mut game_map.render_map,
+            &shadow_data,
+            1,
+            1.0f32,
+            0.0f32,
+        );
     }
 }
 
@@ -82,7 +88,7 @@ fn recursive_shadowcasting(
                 continue;
             }
 
-            let i = (x + (20 * y)) as usize;
+            let i = (x + (shadow_data.column_count * y)) as usize;
 
             let cell = &mut render_map[i];
 
@@ -98,7 +104,7 @@ fn recursive_shadowcasting(
 
             if (delta_x * delta_x) + (dy * dy) < radius_squer {
                 cell.lit = true;
-                // cell.visited = true;
+                cell.visited = true;
             }
 
             if blocked {
