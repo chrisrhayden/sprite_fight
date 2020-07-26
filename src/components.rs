@@ -2,10 +2,6 @@ use std::collections::HashMap;
 
 use crate::tileset::SpriteCode;
 
-pub trait Component {
-    fn get_id(&self) -> usize;
-}
-
 #[derive(Clone)]
 pub struct Render {
     pub visible: bool,
@@ -26,6 +22,14 @@ pub struct Selected {
     pub entity: Option<usize>,
 }
 
+pub enum AiType {
+    Basic,
+}
+
+pub struct Ai {
+    pub ai_type: AiType,
+}
+
 pub struct Name {
     pub value: String,
 }
@@ -42,6 +46,7 @@ pub struct ComponentStore {
     pub position: HashMap<usize, Position>,
     pub terrain: HashMap<usize, Terrain>,
     pub name: HashMap<usize, Name>,
+    pub ai: HashMap<usize, Ai>,
 }
 
 impl Default for ComponentStore {
@@ -53,6 +58,7 @@ impl Default for ComponentStore {
             position: HashMap::new(),
             terrain: HashMap::new(),
             name: HashMap::new(),
+            ai: HashMap::new(),
         }
     }
 }

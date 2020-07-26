@@ -9,7 +9,7 @@ use std::{
 use std::convert::TryFrom;
 
 use crate::{
-    components::{ComponentStore, Terrain},
+    components::{Ai, AiType, ComponentStore, Position, Render, Terrain},
     entitys::Entitys,
     tileset::SpriteCode,
 };
@@ -105,19 +105,47 @@ impl GameMap {
             let mut terrain = Terrain {
                 index,
                 visible: false,
-                sprite_code: *sprite_code,
+                sprite_code: SpriteCode::NoSprite,
             };
 
             let mut render_cell = RenderCell {
                 visited: false,
                 lit: false,
                 visible: false,
-                sprite_code: *sprite_code,
+                sprite_code: SpriteCode::NoSprite,
             };
 
-            if *sprite_code != SpriteCode::NoSprite {
-                terrain.visible = true;
-                render_cell.visible = true;
+            match *sprite_code {
+                SpriteCode::Unliving1 => {
+                    let zombie_id = entitys.new_id();
+                    render_cell.visible = true;
+
+                    components.ai.insert(
+                        zombie_id,
+                        Ai {
+                            ai_type: AiType::Basic,
+                        },
+                    );
+
+                    components.position.insert(zombie_id, Position { index });
+
+                    components.render.insert(
+                        zombie_id,
+                        Render {
+                            visible: true,
+                            sprite_code: SpriteCode::Unliving1,
+                        },
+                    );
+                }
+
+                _ => {
+                    if *sprite_code != SpriteCode::NoSprite {
+                        terrain.sprite_code = *sprite_code;
+                        render_cell.sprite_code = *sprite_code;
+                        terrain.visible = true;
+                        render_cell.visible = true;
+                    }
+                }
             }
 
             components.terrain.insert(terrain_id, terrain);

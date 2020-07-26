@@ -11,7 +11,8 @@ use sdl2::{
 };
 
 use crate::{
-    components::ComponentStore, game_map::GameMap, tileset::Tileset, WindowInfo,
+    components::ComponentStore, game_map::GameMap, tileset::Tileset, LoopState,
+    WindowInfo,
 };
 
 pub struct SceneBuilder {
@@ -56,6 +57,7 @@ impl SceneBuilder {
             components,
             game_map,
             player: 0,
+            loop_state: LoopState::Wait,
         }
     }
 }
@@ -64,6 +66,7 @@ pub struct Scene {
     pub game_map: GameMap,
     pub components: ComponentStore,
     pub player: usize,
+    pub loop_state: LoopState,
 }
 
 impl Scene {
@@ -148,7 +151,6 @@ impl Scene {
         canvas.set_draw_color(Color::RGB(50, 50, 50));
         canvas.fill_rect(max_bar)?;
 
-        println!("{} {}", percent, max_bar_value);
         let percent = (percent * max_bar_value) / 100;
 
         let percent_bar = Rect::new(start_x, start_y, percent, text_height + 4);
@@ -180,8 +182,19 @@ impl Scene {
             if let Some(ent) = self.components.render.get(&key) {
                 let cell = &mut render_map[pos.index];
 
-                cell.visible = ent.visible;
-                cell.sprite_code = ent.sprite_code;
+                if cell.lit && ent.visible {
+                    cell.visible = true;
+                    cell.sprite_code = ent.sprite_code;
+                } else {
+                    let terain_id = self.game_map.terrain_map[pos.index];
+
+                    cell.sprite_code = self
+                        .components
+                        .terrain
+                        .get(&terain_id)
+                        .unwrap()
+                        .sprite_code;
+                }
             }
         }
 

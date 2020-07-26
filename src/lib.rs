@@ -14,6 +14,7 @@ use sdl2::{
     pixels::Color,
     render::{Canvas, TextureCreator},
     surface::Surface,
+    ttf::Font,
     ttf::{self, Sdl2TtfContext},
     video::{Window, WindowContext},
     EventPump,
@@ -25,8 +26,8 @@ use entitys::Entitys;
 use fov::fov;
 use game_map::MapInfo;
 use map_gen::generator::{MapGen, MapType};
-use scenes::{SceneBuilder, SceneManager};
-use systems::input_system::handle_events;
+use scenes::{Scene, SceneBuilder, SceneManager};
+use systems::{ai_system::ai_system, input_system::handle_events};
 use tileset::{TileInfo, Tileset};
 
 pub struct WindowInfo {
@@ -51,9 +52,11 @@ pub struct WorldState<'t> {
     pub scenes: SceneManager,
 }
 
+#[derive(PartialEq, Debug)]
 pub enum LoopState {
     Run,
     Quit,
+    Wait,
 }
 
 fn init_screen(
@@ -108,7 +111,168 @@ fn init_texture<'t>(
     Ok(tileset)
 }
 
-pub fn run_game() -> Result<(), Box<dyn Error>> {
+fn init_font<'ttf, 'r>(
+    ttf: &'ttf Sdl2TtfContext,
+    font_path: &str,
+    font_point: u16,
+) -> Result<Font<'ttf, 'r>, Box<dyn Error>> {
+    let font = ttf.load_font(font_path, font_point)?;
+
+    Ok(font)
+}
+
+fn init_world<'tile>(
+    tileset: Tileset<'tile>,
+    window_info: WindowInfo,
+    map_info: MapInfo,
+) -> (WorldState<'tile>, (usize, usize)) {
+    let mut world = WorldState {
+        entitys: Entitys::new(),
+        scenes: SceneManager::new(),
+        tileset,
+        window_info,
+    };
+
+    let mut components = ComponentStore::default();
+
+    let (game_map, center) = MapGen::new(MapType::Basic, map_info)
+        .make_map(&mut components, &mut world.entitys);
+
+    let scene_builder = SceneBuilder::new()
+        .set_game_map(game_map)
+        .set_components(components);
+
+    let scene_id = world.scenes.register_scene(scene_builder);
+
+    world.scenes.set_current_scene(scene_id);
+
+    (world, center)
+}
+
+fn init_player(
+    scene: &mut Scene,
+    entitys: &mut Entitys,
+    center: (usize, usize),
+) {
+    let player_id = entitys.new_id();
+
+    let index = center.0 + (scene.game_map.map_info.column_count * center.1);
+
+    scene.player = player_id;
+
+    scene.components.name.insert(
+        player_id,
+        Name {
+            value: "player".to_string(),
+        },
+    );
+
+    scene.components.health.insert(
+        player_id,
+        Health {
+            max_value: 10,
+            cur_value: 10,
+        },
+    );
+
+    scene
+        .components
+        .position
+        .insert(player_id, components::Position { index });
+
+    scene.components.render.insert(
+        player_id,
+        components::Render {
+            visible: true,
+            sprite_code: tileset::SpriteCode::Charf1,
+        },
+    );
+
+    let r_cell = &mut scene.game_map.render_map[index];
+    r_cell.visible = true;
+    r_cell.sprite_code = tileset::SpriteCode::Charf1;
+}
+
+pub fn run_game(
+    window_info: WindowInfo,
+    tile_info: TileInfo,
+    map_info: MapInfo,
+) -> Result<(), Box<dyn Error>> {
+    let font_path = "assets/ttf/Hack-Regular.ttf";
+    let texture_path = "assets/png/sprites.png";
+
+    let mut ctx = init_screen(&window_info)?;
+
+    let texture_creator = ctx.canvas.texture_creator();
+
+    let tileset = init_texture(&texture_creator, tile_info, texture_path)?;
+
+    let mut font = init_font(&ctx._ttf, font_path, 16)?;
+
+    let (mut world, center) = init_world(tileset, window_info, map_info);
+
+    let entitys = &mut world.entitys;
+    let scene = world.scenes.get_current_scene_mut();
+
+    init_player(scene, entitys, center);
+
+    for cell in scene.game_map.render_map.iter_mut() {
+        cell.lit = false;
+    }
+
+    fov(&mut scene.game_map, (center.0, center.1));
+
+    'main_game: loop {
+        ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
+        ctx.canvas.clear();
+        let scene = world.scenes.get_current_scene_mut();
+
+        for evt in ctx.events.poll_iter() {
+            let loop_state = handle_events(scene, &evt);
+
+            match loop_state {
+                LoopState::Quit => break 'main_game,
+                LoopState::Wait => {}
+                _ => {
+                    scene.loop_state = loop_state;
+                }
+            }
+        }
+
+        if scene.loop_state == LoopState::Run {
+            for cell in scene.game_map.render_map.iter_mut() {
+                cell.lit = false;
+            }
+
+            let player_id = scene.player;
+
+            let pos = scene.components.position.get(&player_id).unwrap();
+
+            let cx = pos.index % scene.game_map.map_info.column_count;
+            let cy = pos.index / scene.game_map.map_info.column_count;
+
+            fov(&mut scene.game_map, (cx, cy));
+
+            ai_system(scene);
+
+            scene.loop_state = LoopState::Wait;
+        }
+
+        scene.render_scene(
+            &texture_creator,
+            &mut ctx.canvas,
+            &mut font,
+            &mut world.tileset,
+            &world.window_info,
+        )?;
+
+        ctx.canvas.present();
+    }
+
+    Ok(())
+}
+
+pub fn make_game_info() -> (WindowInfo, TileInfo, MapInfo) {
     let map_cols = 30;
     let map_rows = 30;
 
@@ -144,116 +308,5 @@ pub fn run_game() -> Result<(), Box<dyn Error>> {
         total_count: map_cols * map_rows,
     };
 
-    let font_path = "assets/ttf/Hack-Regular.ttf";
-    let texture_path = "assets/png/sprites.png";
-
-    let mut ctx = init_screen(&window_info)?;
-
-    let mut font = ctx._ttf.load_font(font_path, 16)?;
-
-    let texture_creator = ctx.canvas.texture_creator();
-
-    let tileset = init_texture(&texture_creator, tile_info, texture_path)?;
-
-    let mut world = WorldState {
-        entitys: Entitys::new(),
-        scenes: SceneManager::new(),
-        tileset,
-        window_info,
-    };
-
-    let mut components = ComponentStore::default();
-
-    let (game_map, center) = MapGen::new(MapType::Basic, map_info)
-        .make_map(&mut components, &mut world.entitys);
-
-    let scene_builder = SceneBuilder::new()
-        .set_game_map(game_map)
-        .set_components(components);
-
-    let scene_id = world.scenes.register_scene(scene_builder);
-
-    world.scenes.set_current_scene(scene_id);
-
-    {
-        let scene = world.scenes.get_current_scene_mut();
-
-        let player_id = world.entitys.new_id();
-
-        let index =
-            center.0 + (scene.game_map.map_info.column_count * center.1);
-
-        scene.player = player_id;
-
-        scene.components.name.insert(
-            player_id,
-            Name {
-                value: "player".to_string(),
-            },
-        );
-
-        scene.components.health.insert(
-            player_id,
-            Health {
-                max_value: 10,
-                cur_value: 10,
-            },
-        );
-
-        scene
-            .components
-            .position
-            .insert(player_id, components::Position { index });
-
-        scene.components.render.insert(
-            player_id,
-            components::Render {
-                visible: true,
-                sprite_code: tileset::SpriteCode::Charf1,
-            },
-        );
-
-        let r_cell = &mut scene.game_map.render_map[index];
-        r_cell.visible = true;
-        r_cell.sprite_code = tileset::SpriteCode::Charf1;
-    }
-
-    'main_game: loop {
-        ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
-        ctx.canvas.clear();
-
-        for evt in ctx.events.poll_iter() {
-            match handle_events(&mut world, &evt) {
-                LoopState::Quit => break 'main_game,
-                _ => {}
-            }
-        }
-
-        let scene = world.scenes.get_current_scene_mut();
-
-        let player_id = scene.player;
-
-        for cell in scene.game_map.render_map.iter_mut() {
-            cell.lit = false;
-        }
-
-        let pos = scene.components.position.get(&player_id).unwrap();
-
-        let cx = pos.index % scene.game_map.map_info.column_count;
-        let cy = pos.index / scene.game_map.map_info.column_count;
-
-        fov(&mut scene.game_map, (cx, cy));
-
-        scene.render_scene(
-            &texture_creator,
-            &mut ctx.canvas,
-            &mut font,
-            &mut world.tileset,
-            &world.window_info,
-        )?;
-
-        ctx.canvas.present();
-    }
-
-    Ok(())
+    (window_info, tile_info, map_info)
 }

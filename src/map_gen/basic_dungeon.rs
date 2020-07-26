@@ -28,7 +28,9 @@ fn carve_room(
         for y in room.y1..=room.y2 {
             let i = x + (column_count * y);
 
-            sprite_map[i] = SpriteCode::NoSprite;
+            if sprite_map[i] != SpriteCode::Unliving1 {
+                sprite_map[i] = SpriteCode::NoSprite;
+            }
         }
     }
 }
@@ -57,7 +59,9 @@ fn carve_hallways(
     for x in min_x..=max_x {
         let i = x + (column_count * sy);
 
-        sprite_map[i] = SpriteCode::NoSprite;
+        if sprite_map[i] != SpriteCode::Unliving1 {
+            sprite_map[i] = SpriteCode::NoSprite;
+        }
     }
 
     let min_y = min(p_center.1, c_center.1);
@@ -65,7 +69,10 @@ fn carve_hallways(
 
     for y in min_y..=max_y {
         let i = sx + (column_count * y);
-        sprite_map[i] = SpriteCode::NoSprite;
+
+        if sprite_map[i] != SpriteCode::Unliving1 {
+            sprite_map[i] = SpriteCode::NoSprite;
+        }
     }
 }
 
@@ -114,6 +121,14 @@ pub fn basic_gen(
             &mut sprite_map,
             column_count,
         );
+
+        if rng.gen_ratio(2, 3) {
+            let center = new_room.center();
+
+            let i = center.0 + (column_count * center.1);
+
+            sprite_map[i] = SpriteCode::Unliving1;
+        }
 
         rooms.push(new_room);
     }
