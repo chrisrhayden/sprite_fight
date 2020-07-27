@@ -3,6 +3,7 @@ mod entitys;
 mod fov;
 mod game_map;
 mod map_gen;
+mod path_finding;
 mod scenes;
 mod systems;
 mod tileset;
