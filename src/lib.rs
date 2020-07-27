@@ -1,9 +1,9 @@
+mod astar;
 mod components;
 mod entitys;
 mod fov;
 mod game_map;
 mod map_gen;
-mod path_finding;
 mod scenes;
 mod systems;
 mod tileset;
@@ -15,14 +15,12 @@ use sdl2::{
     pixels::Color,
     render::{Canvas, TextureCreator},
     surface::Surface,
-    ttf::Font,
-    ttf::{self, Sdl2TtfContext},
+    ttf::{self, Font, Sdl2TtfContext},
     video::{Window, WindowContext},
     EventPump,
 };
 
-use components::ComponentStore;
-use components::{Health, Name};
+use components::{ComponentStore, Health, Name};
 use entitys::Entitys;
 use fov::fov;
 use game_map::MapInfo;
@@ -199,7 +197,7 @@ pub fn run_game(
     tile_info: TileInfo,
     map_info: MapInfo,
 ) -> Result<(), Box<dyn Error>> {
-    let font_path = "assets/ttf/Hack-Regular.ttf";
+    let font_path = "assets/ttf/unscii-16-full.ttf";
     let texture_path = "assets/png/sprites.png";
 
     let mut ctx = init_screen(&window_info)?;
@@ -208,7 +206,7 @@ pub fn run_game(
 
     let tileset = init_texture(&texture_creator, tile_info, texture_path)?;
 
-    let mut font = init_font(&ctx._ttf, font_path, 16)?;
+    let mut font = init_font(&ctx._ttf, font_path, 18)?;
 
     let (mut world, center) = init_world(tileset, window_info, map_info);
 
@@ -221,7 +219,7 @@ pub fn run_game(
         cell.lit = false;
     }
 
-    fov(&mut scene.game_map, (center.0, center.1));
+    fov(&mut scene.game_map, center);
 
     'main_game: loop {
         ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -233,7 +231,6 @@ pub fn run_game(
 
             match loop_state {
                 LoopState::Quit => break 'main_game,
-                LoopState::Wait => {}
                 _ => {
                     scene.loop_state = loop_state;
                 }

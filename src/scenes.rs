@@ -126,8 +126,9 @@ impl Scene {
         start_y: i32,
     ) -> Result<(), Box<dyn Error>> {
         let text = String::from("health");
-        let f_surface = font.render(&text).solid(Color::RGB(0, 0, 0))?;
-        let text = texture_creator.create_texture_from_surface(&f_surface)?;
+
+        let f_surface = font.render(&text).blended(Color::RGB(1, 1, 1))?;
+
         let text_width = f_surface.width();
         let text_height = f_surface.height();
 
@@ -158,10 +159,12 @@ impl Scene {
         canvas.set_draw_color(Color::RGB(200, 50, 50));
         canvas.fill_rect(percent_bar)?;
 
-        let text_rect =
-            Rect::new(start_x, start_y + 2, text_width, text_height);
+        let text = texture_creator.create_texture_from_surface(&f_surface)?;
 
-        canvas.copy(&text, None, text_rect)?;
+        let text_dist_rect =
+            Rect::new(start_x, start_y, text_width, text_height);
+
+        canvas.copy(&text, None, text_dist_rect)?;
 
         Ok(())
     }

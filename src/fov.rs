@@ -119,7 +119,6 @@ fn recursive_shadowcasting(
                 if cell.visible && distance < shadow_data.radius {
                     blocked = true;
 
-                    // recurse here for more
                     recursive_shadowcasting(
                         render_map,
                         shadow_data,

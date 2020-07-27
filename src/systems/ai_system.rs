@@ -1,4 +1,4 @@
-use crate::{path_finding::astar::astar, scenes::Scene};
+use crate::{astar::astar, scenes::Scene};
 
 use super::move_system::{move_by_system, move_to_system};
 
@@ -59,31 +59,27 @@ pub fn ai_system(scene: &mut Scene) {
                     astar(&scene.game_map, (ai_x, ai_y), (player_x, player_y))
                         .unwrap();
 
-                for p in &path {
-                    println!("{:?}", p);
+                if let Some(path) = path {
+                    let first = path.first().unwrap().clone();
+
+                    if first != (player_x, player_y) {
+                        continue;
+                    }
+
+                    let last =
+                        path.iter().rev().skip(1).take(1).next().unwrap();
+
+                    move_to_system(
+                        &mut scene.game_map,
+                        &mut scene.components.position,
+                        &scene.components.terrain,
+                        *ai_id,
+                        (ai_x, ai_y),
+                        *last,
+                    );
+                } else {
+                    // no path to take
                 }
-
-                let first = path.first().unwrap().clone();
-
-                if first != (player_x, player_y) {
-                    continue;
-                }
-
-                let last = path.iter().rev().skip(1).take(1).next().unwrap();
-
-                println!(
-                    "player: ({}, {}) from: ({}, {}) to: ({}, {}) ",
-                    player_x, player_y, ai_x, ai_y, last.0, last.1,
-                );
-
-                move_to_system(
-                    &mut scene.game_map,
-                    &mut scene.components.position,
-                    &scene.components.terrain,
-                    *ai_id,
-                    (ai_x, ai_y),
-                    *last,
-                );
             }
         }
     }
