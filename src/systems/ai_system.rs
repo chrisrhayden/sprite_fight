@@ -59,11 +59,21 @@ pub fn ai_system(scene: &mut Scene) {
                     astar(&scene.game_map, (ai_x, ai_y), (player_x, player_y))
                         .unwrap();
 
+                for p in &path {
+                    println!("{:?}", p);
+                }
+
+                let first = path.first().unwrap().clone();
+
+                if first != (player_x, player_y) {
+                    continue;
+                }
+
                 let last = path.iter().rev().skip(1).take(1).next().unwrap();
 
                 println!(
-                    "form: ({}, {}) to: ({}, {})",
-                    ai_x, ai_y, last.0, last.1,
+                    "player: ({}, {}) from: ({}, {}) to: ({}, {}) ",
+                    player_x, player_y, ai_x, ai_y, last.0, last.1,
                 );
 
                 move_to_system(

@@ -105,6 +105,8 @@ pub fn astar(
         let current_pos = item.borrow().position;
 
         if outer_i > max_iter {
+            // TODO: return failed to find path
+            println!(">>>>>>");
             return Ok(make_path(item));
         }
 
