@@ -9,7 +9,7 @@ use std::{
 use std::convert::TryFrom;
 
 use crate::{
-    components::{Ai, AiType, ComponentStore, Position, Render, Terrain},
+    components::{Ai, AiType, ComponentStore, EntitySize, Render},
     entitys::Entitys,
     tileset::SpriteCode,
 };
@@ -50,10 +50,13 @@ pub fn load_map_file(
 }
 
 pub struct RenderCell {
-    pub visible: bool,
-    pub sprite_code: SpriteCode,
-    pub visited: bool,
     pub lit: bool,
+    pub visible: bool,
+    pub visited: bool,
+    pub ent_size: EntitySize,
+    pub ent_code: SpriteCode,
+    pub terrain_size: EntitySize,
+    pub terrain_code: SpriteCode,
 }
 
 #[derive(Clone)]
@@ -102,17 +105,14 @@ impl GameMap {
         for (index, sprite_code) in sprite_map.iter().enumerate() {
             let terrain_id = entitys.new_id();
 
-            let mut terrain = Terrain {
-                index,
-                visible: false,
-                sprite_code: SpriteCode::NoSprite,
-            };
-
             let mut render_cell = RenderCell {
                 visited: false,
                 lit: false,
                 visible: false,
-                sprite_code: SpriteCode::NoSprite,
+                ent_size: EntitySize::Nothing,
+                terrain_size: EntitySize::Nothing,
+                ent_code: SpriteCode::NoSprite,
+                terrain_code: SpriteCode::NoSprite,
             };
 
             match *sprite_code {
@@ -127,28 +127,28 @@ impl GameMap {
                         },
                     );
 
-                    components.position.insert(zombie_id, Position { index });
-
                     components.render.insert(
                         zombie_id,
                         Render {
-                            visible: true,
+                            index,
+                            size: EntitySize::Medium,
                             sprite_code: SpriteCode::Unliving1,
+                            visible: true,
                         },
                     );
                 }
 
                 _ => {
                     if *sprite_code != SpriteCode::NoSprite {
-                        terrain.sprite_code = *sprite_code;
-                        render_cell.sprite_code = *sprite_code;
-                        terrain.visible = true;
+                        render_cell.terrain_code = *sprite_code;
+                        render_cell.terrain_size = EntitySize::Medium;
+                        render_cell.ent_code = *sprite_code;
+                        render_cell.ent_size = EntitySize::Medium;
+
                         render_cell.visible = true;
                     }
                 }
             }
-
-            components.terrain.insert(terrain_id, terrain);
 
             self.terrain_map.push(terrain_id);
 

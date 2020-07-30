@@ -11,8 +11,10 @@ use sdl2::{
 };
 
 use crate::{
-    components::ComponentStore, game_map::GameMap, tileset::Tileset, LoopState,
-    WindowInfo,
+    components::ComponentStore,
+    game_map::GameMap,
+    tileset::{SpriteCode, Tileset},
+    LoopState, WindowInfo,
 };
 
 pub struct SceneBuilder {
@@ -94,21 +96,27 @@ impl Scene {
             }
 
             if render_cell.lit || render_cell.visited {
-                if render_cell.visited && !render_cell.lit {
-                    tileset.texture.set_color_mod(50, 50, 50);
-                } else {
-                    tileset.texture.set_color_mod(250, 250, 250);
-                };
-
                 dest_rect.set_x(x);
                 dest_rect.set_y(y);
 
-                canvas.copy(
-                    &tileset.texture,
-                    tileset.tile_codes[render_cell.sprite_code as usize]
-                        .to_owned(),
-                    dest_rect,
-                )?;
+                if render_cell.visited && !render_cell.lit {
+                    canvas.set_draw_color(Color::RGB(10, 10, 50));
+                    tileset.texture.set_color_mod(50, 50, 50);
+                } else {
+                    canvas.set_draw_color(Color::RGB(10, 10, 150));
+                    tileset.texture.set_color_mod(250, 250, 250);
+                }
+
+                canvas.fill_rect(dest_rect)?;
+
+                if render_cell.ent_code != SpriteCode::NoSprite {
+                    canvas.copy(
+                        &tileset.texture,
+                        tileset.tile_codes[render_cell.ent_code as usize]
+                            .to_owned(),
+                        dest_rect,
+                    )?;
+                }
             }
 
             x += tile_width;
@@ -175,31 +183,10 @@ impl Scene {
         canvas: &mut Canvas<Window>,
         font: &mut Font,
         tileset: &mut Tileset,
-        _window_info: &WindowInfo,
+        window_info: &WindowInfo,
     ) -> Result<(), Box<dyn Error>> {
+        let start_x = window_info.map_start_x;
         let render_map = &mut self.game_map.render_map;
-        let start_x = 0;
-
-        // add the entitys to the render_map
-        for (key, pos) in self.components.position.iter() {
-            if let Some(ent) = self.components.render.get(&key) {
-                let cell = &mut render_map[pos.index];
-
-                if cell.lit && ent.visible {
-                    cell.visible = true;
-                    cell.sprite_code = ent.sprite_code;
-                } else {
-                    let terain_id = self.game_map.terrain_map[pos.index];
-
-                    cell.sprite_code = self
-                        .components
-                        .terrain
-                        .get(&terain_id)
-                        .unwrap()
-                        .sprite_code;
-                }
-            }
-        }
 
         let column_count = self.game_map.map_info.column_count;
 

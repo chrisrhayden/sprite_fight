@@ -1,4 +1,4 @@
-use crate::game_map::{GameMap, RenderCell};
+use crate::{components::EntitySize, game_map::GameMap};
 
 const MULT: [[isize; 8]; 4] = [
     [1, 0, 0, -1, -1, 0, 0, 1],
@@ -20,119 +20,122 @@ struct ShadowData {
 }
 
 pub fn fov(game_map: &mut GameMap, view_point: (usize, usize)) {
-    let index = view_point.0 + (game_map.map_info.column_count * view_point.1);
+    let ind =
+        view_point.0 + (game_map.map_info.column_count as usize * view_point.1);
 
-    game_map.render_map[index].lit = true;
+    game_map.render_map[ind].lit = true;
 
     for region in 0..8 {
-        let shadow_data = ShadowData {
+        let mut shadow_data = ShadowData {
             column_count: game_map.map_info.column_count as isize,
             row_count: game_map.map_info.row_count as isize,
             view_x: view_point.0 as isize,
             view_y: view_point.1 as isize,
-            radius: 20,
+            radius: 7,
             xx: MULT[0][region],
             xy: MULT[1][region],
             yx: MULT[2][region],
             yy: MULT[3][region],
         };
 
-        recursive_shadowcasting(
-            &mut game_map.render_map,
-            &shadow_data,
-            1,
-            1.0f32,
-            0.0f32,
-        );
+        recursive_shadowcasting(game_map, &mut shadow_data, 1, 1.0f64, 0.0f64);
     }
 }
 
 fn recursive_shadowcasting(
-    render_map: &mut Vec<RenderCell>,
-    shadow_data: &ShadowData,
+    game_map: &mut GameMap,
+    shadow_data: &mut ShadowData,
     row: isize,
-    start: f32,
-    end: f32,
+    start: f64,
+    end: f64,
 ) {
-    let mut start = start;
-    let radius_squer = shadow_data.radius * shadow_data.radius;
-
-    let mut new_start = start;
-
     if start < end {
         return;
     }
 
-    let mut blocked = false;
+    let mut left_view_slope = start;
 
-    for distance in row..=shadow_data.radius {
-        let dx = -(distance as isize);
-        let dy = -(distance as isize);
+    let view_radius_square =
+        shadow_data.radius as f64 * shadow_data.radius as f64;
 
-        for delta_x in dx..=0 {
-            // make map cords
-            // translate the dx, dy coordinates into map coordinates
-            let x = shadow_data.view_x
-                + delta_x * shadow_data.xx
-                + dy * shadow_data.xy;
+    let view_ceiling = shadow_data.radius;
 
-            let y = shadow_data.view_y
-                + delta_x * shadow_data.yx
-                + dy * shadow_data.yy;
+    let mut prev_was_blocked = false;
 
-            if x < 0
-                || x >= shadow_data.column_count
-                || y < 0
-                || y >= shadow_data.row_count
+    let mut saved_right_slope = -1.0f64;
+
+    let map_width = shadow_data.column_count;
+    let map_height = shadow_data.row_count;
+
+    // move along the columns / x axis
+    for cur_col in row..=view_ceiling {
+        let yc = -(cur_col);
+
+        // move down the rows / y axis
+        for xc in yc..=0 {
+            let grid_x =
+                shadow_data.view_x + xc * shadow_data.xx + yc * shadow_data.xy;
+
+            let grid_y =
+                shadow_data.view_y + xc * shadow_data.yx + yc * shadow_data.yy;
+
+            let left_block_slope = (xc as f64 - 0.5) / (yc as f64 + 0.5);
+            let right_block_slope = (xc as f64 + 0.5) / (yc as f64 - 0.5);
+
+            if grid_x < 0
+                || grid_x >= map_width
+                || grid_y < 0
+                || grid_y >= map_height
             {
                 continue;
             }
 
-            let i = (x + (shadow_data.column_count * y)) as usize;
-
-            let cell = &mut render_map[i];
-
-            let l_slope = (dx as f32 - 0.5) / (dy as f32 + 0.5);
-            let r_slope = (dx as f32 + 0.5) / (dy as f32 - 0.5);
-
-            if start < r_slope {
+            if right_block_slope > left_view_slope {
+                // block is above the left edge if our view, skip
                 continue;
-            }
-            if end > l_slope {
+            } else if left_block_slope < end {
+                // block is below th right edge of our view area, were done
                 break;
             }
 
-            if (delta_x * delta_x) + (dy * dy) < radius_squer {
+            let distance_squer = ((xc * xc) + (yc * yc)) as f64;
+
+            let cel_ind = (grid_x + (map_width * grid_y)) as usize;
+
+            if distance_squer <= view_radius_square {
+                let cell = &mut game_map.render_map[cel_ind];
+
                 cell.lit = true;
-                cell.visited = true;
             }
 
-            if blocked {
-                if cell.visible {
-                    new_start = r_slope;
-                    continue;
+            let cur_blocked =
+                game_map.render_map[cel_ind].ent_size > EntitySize::Small;
+
+            if prev_was_blocked {
+                if cur_blocked {
+                    saved_right_slope = right_block_slope;
                 } else {
-                    blocked = false;
-                    start = new_start;
+                    prev_was_blocked = false;
+                    left_view_slope = saved_right_slope;
                 }
             } else {
-                if cell.visible && distance < shadow_data.radius {
-                    blocked = true;
-
+                if cur_blocked && cur_col < shadow_data.radius {
                     recursive_shadowcasting(
-                        render_map,
+                        game_map,
                         shadow_data,
-                        distance + 1,
-                        start,
-                        l_slope,
+                        cur_col + 1,
+                        left_view_slope,
+                        left_block_slope,
                     );
 
-                    new_start = r_slope;
+                    prev_was_blocked = true;
+
+                    saved_right_slope = right_block_slope;
                 }
             }
         }
 
-        if blocked {
+        if prev_was_blocked {
             break;
         }
     }

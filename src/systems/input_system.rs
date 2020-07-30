@@ -7,8 +7,7 @@ use super::move_system::move_by_system;
 fn move_player(scene: &mut Scene, to_move: (isize, isize)) -> LoopState {
     move_by_system(
         &mut scene.game_map,
-        &mut scene.components.position,
-        &scene.components.terrain,
+        &mut scene.components.render,
         scene.player,
         to_move,
     );

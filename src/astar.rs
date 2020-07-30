@@ -1,6 +1,6 @@
 use std::{cell::RefCell, error::Error, rc::Rc};
 
-use crate::game_map::GameMap;
+use crate::{components::EntitySize, game_map::GameMap};
 
 const ADJACENT_SQUARES: [(isize, isize); 8] = [
     (0, -1),
@@ -13,6 +13,7 @@ const ADJACENT_SQUARES: [(isize, isize); 8] = [
     (1, 1),
 ];
 
+#[derive(Debug)]
 struct Node {
     parent: Option<Rc<RefCell<Node>>>,
     position: (isize, isize),
@@ -81,48 +82,55 @@ pub fn astar(
 
     let mut closed_list: Vec<Rc<RefCell<Node>>> = vec![];
 
-    let mut open_len = open_list.len();
-
     let mut outer_i = 0;
     // loop till we find the end
-    while open_len > 0 {
+    while open_list.len() > 0 {
         outer_i += 1;
 
-        let mut current_f = open_list.first().unwrap().borrow().f;
-        let mut current_index = 0;
-
-        // fond the "cheapest" item
-        for (i, item) in open_list.iter().enumerate() {
-            if current_f > item.borrow().f {
-                current_f = item.borrow().f;
-
-                current_index = i;
-            }
+        if outer_i > max_iter {
+            return Ok(None);
         }
 
         // get the item
-        let item = open_list.remove(current_index);
+        let item = open_list.first().unwrap();
+        let current_pos = item.borrow().position;
+        let mut current_f = item.borrow().f;
+        let mut index = 0;
+        // if we fond the end
+        if current_pos == end_node.borrow().position {
+            return Ok(Some(make_path(item.clone())));
+        }
+
+        for (i, node) in open_list.iter().enumerate() {
+            if current_f > node.borrow().f {
+                index = i;
+
+                current_f = node.borrow().f;
+            }
+        }
+
+        let item = open_list.remove(index);
         let current_pos = item.borrow().position;
 
-        if outer_i > max_iter {
-            // TODO: return failed to find path
-            return Ok(None);
+        // if we fond the end
+        if current_pos.0 == end_node.borrow().position.0
+            && current_pos.1 == end_node.borrow().position.1
+        {
+            return Ok(Some(make_path(item)));
         }
 
         // add current_node to closed_list
         closed_list.push(item.clone());
 
-        // if we fond the end
-        if current_pos == end_node.borrow().position {
-            return Ok(Some(make_path(item)));
-        }
-
         // generate children
         let mut children: Vec<Rc<RefCell<Node>>> = vec![];
 
+        // make potential children
         for new_pos in ADJACENT_SQUARES.iter() {
             let node_position: (isize, isize) =
                 (current_pos.0 + new_pos.0, current_pos.1 + new_pos.1);
+
+            println!("- {:?} {:?}", node_position, end_node.borrow().position);
 
             if node_position.0 < 0
                 || node_position.0 > map_len
@@ -135,7 +143,11 @@ pub fn astar(
             let node_index = node_position.0
                 + (game_map.map_info.column_count as isize * node_position.1);
 
-            if !game_map.render_map[node_index as usize].visible {
+            // check if can move
+            if game_map.render_map[node_index as usize].ent_size
+                < EntitySize::Medium
+                || node_position == end_node.borrow().position
+            {
                 let new_node = Rc::new(RefCell::new(Node::new(
                     Some(item.clone()),
                     node_position,
@@ -145,21 +157,22 @@ pub fn astar(
             }
         }
 
-        'children: for child in children.drain(0..) {
-            let child = child;
+        // add children with filter to open list
+        'children: for child in children {
+            let mut child_inner = child.borrow_mut();
 
             for cc in &closed_list {
-                if child.borrow().position == cc.borrow().position {
+                if child_inner.position == cc.borrow().position {
                     continue 'children;
                 }
             }
 
-            let mut child_inner = child.borrow_mut();
-
             child_inner.g = item.borrow().g + 1;
+
             child_inner.h =
                 (child_inner.position.0 - end_node.borrow().position.0).pow(2)
-                    + (child_inner.position.1 - end_node.borrow().position.1);
+                    + (child_inner.position.1 - end_node.borrow().position.1)
+                        .pow(2);
 
             child_inner.f = child_inner.g + child_inner.h;
 
@@ -173,8 +186,6 @@ pub fn astar(
 
             open_list.push(child.clone());
         }
-
-        open_len = open_list.len();
     }
 
     return Err(Box::from("i dont know how we get here"));

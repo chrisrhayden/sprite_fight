@@ -4,15 +4,15 @@ use super::move_system::{move_by_system, move_to_system};
 
 #[allow(dead_code)]
 fn basic_movement(scene: &mut Scene, ai_id: usize) {
-    let index = scene.components.position.get(&scene.player).unwrap().index;
+    let index = scene.components.render.get(&scene.player).unwrap().index;
 
-    let ai_pos_index =
-        if let Some(ai_pos) = scene.components.position.get(&ai_id) {
-            ai_pos.index
-        } else {
-            println!("ai has no position");
-            return;
-        };
+    let ai_pos_index = if let Some(ai_pos) = scene.components.render.get(&ai_id)
+    {
+        ai_pos.index
+    } else {
+        println!("ai has no position");
+        return;
+    };
 
     if scene.game_map.render_map[ai_pos_index].lit {
         let cols = scene.game_map.map_info.column_count;
@@ -32,8 +32,7 @@ fn basic_movement(scene: &mut Scene, ai_id: usize) {
 
         move_by_system(
             &mut scene.game_map,
-            &mut scene.components.position,
-            &scene.components.terrain,
+            &mut scene.components.render,
             ai_id.to_owned(),
             (dx, dy),
         );
@@ -44,20 +43,28 @@ pub fn ai_system(scene: &mut Scene) {
     let column_count = scene.game_map.map_info.column_count;
 
     let player_index =
-        scene.components.position.get(&scene.player).unwrap().index;
+        scene.components.render.get(&scene.player).unwrap().index;
 
     let player_x = (player_index % column_count) as isize;
     let player_y = (player_index / column_count) as isize;
 
-    for (ai_id, _ai) in scene.components.ai.iter_mut() {
-        if let Some(ai_pos) = scene.components.position.get(ai_id) {
-            if scene.game_map.render_map[ai_pos.index].lit {
-                let ai_x = (ai_pos.index % column_count) as isize;
-                let ai_y = (ai_pos.index / column_count) as isize;
+    for ai_id in scene.components.ai.keys() {
+        if let Some(ai_ent_render) = scene.components.render.get(ai_id) {
+            if scene.game_map.render_map[ai_ent_render.index].lit {
+                let ai_x = (ai_ent_render.index % column_count) as isize;
+                let ai_y = (ai_ent_render.index / column_count) as isize;
 
-                let path =
-                    astar(&scene.game_map, (ai_x, ai_y), (player_x, player_y))
-                        .unwrap();
+                let path = match astar(
+                    &mut scene.game_map,
+                    (ai_x, ai_y),
+                    (player_x, player_y),
+                ) {
+                    Ok(path) => path,
+                    Err(err) => {
+                        println!("{}", err);
+                        return;
+                    }
+                };
 
                 if let Some(path) = path {
                     let first = path.first().unwrap().clone();
@@ -71,10 +78,8 @@ pub fn ai_system(scene: &mut Scene) {
 
                     move_to_system(
                         &mut scene.game_map,
-                        &mut scene.components.position,
-                        &scene.components.terrain,
+                        &mut scene.components.render,
                         *ai_id,
-                        (ai_x, ai_y),
                         *last,
                     );
                 } else {

@@ -2,20 +2,20 @@ use std::collections::HashMap;
 
 use crate::tileset::SpriteCode;
 
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
+pub enum EntitySize {
+    Nothing,
+    Small,
+    Medium,
+    Large,
+}
+
 #[derive(Clone)]
 pub struct Render {
-    pub visible: bool,
-    pub sprite_code: SpriteCode,
-}
-
-pub struct Terrain {
+    pub size: EntitySize,
     pub index: usize,
     pub visible: bool,
     pub sprite_code: SpriteCode,
-}
-
-pub struct Position {
-    pub index: usize,
 }
 
 pub struct Selected {
@@ -43,8 +43,6 @@ pub struct ComponentStore {
     pub health: HashMap<usize, Health>,
     pub render: HashMap<usize, Render>,
     pub selected: HashMap<usize, Selected>,
-    pub position: HashMap<usize, Position>,
-    pub terrain: HashMap<usize, Terrain>,
     pub name: HashMap<usize, Name>,
     pub ai: HashMap<usize, Ai>,
 }
@@ -55,8 +53,6 @@ impl Default for ComponentStore {
             health: HashMap::new(),
             render: HashMap::new(),
             selected: HashMap::new(),
-            position: HashMap::new(),
-            terrain: HashMap::new(),
             name: HashMap::new(),
             ai: HashMap::new(),
         }

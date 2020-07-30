@@ -20,7 +20,7 @@ use sdl2::{
     EventPump,
 };
 
-use components::{ComponentStore, Health, Name};
+use components::{ComponentStore, EntitySize, Health, Name, Render};
 use entitys::Entitys;
 use fov::fov;
 use game_map::MapInfo;
@@ -33,6 +33,7 @@ pub struct WindowInfo {
     pub name: String,
     pub width: u32,
     pub height: u32,
+    pub map_start_x: i32,
 }
 
 // sdl context, mostly to keep parts of sdl alive
@@ -103,7 +104,7 @@ fn init_texture<'t>(
 
     surface.set_color_key(true, Color::RGB(0, 0, 0))?;
 
-    let texture = surface.as_texture(&texture_creator)?;
+    let texture = texture_creator.create_texture_from_surface(surface)?;
 
     let tileset = Tileset::new(texture, tile_info)?;
 
@@ -162,7 +163,7 @@ fn init_player(
     scene.components.name.insert(
         player_id,
         Name {
-            value: "player".to_string(),
+            value: "test player".to_string(),
         },
     );
 
@@ -174,22 +175,15 @@ fn init_player(
         },
     );
 
-    scene
-        .components
-        .position
-        .insert(player_id, components::Position { index });
-
     scene.components.render.insert(
         player_id,
-        components::Render {
-            visible: true,
+        Render {
+            index,
             sprite_code: tileset::SpriteCode::Charf1,
+            size: EntitySize::Medium,
+            visible: true,
         },
     );
-
-    let r_cell = &mut scene.game_map.render_map[index];
-    r_cell.visible = true;
-    r_cell.sprite_code = tileset::SpriteCode::Charf1;
 }
 
 pub fn run_game(
@@ -215,8 +209,13 @@ pub fn run_game(
 
     init_player(scene, entitys, center);
 
-    for cell in scene.game_map.render_map.iter_mut() {
-        cell.lit = false;
+    for ent in scene.components.render.values() {
+        let ent_ind = ent.index;
+        let cell = &mut scene.game_map.render_map[ent_ind];
+
+        cell.ent_size = ent.size;
+        cell.ent_code = ent.sprite_code;
+        cell.visible = ent.visible;
     }
 
     fov(&mut scene.game_map, center);
@@ -224,6 +223,7 @@ pub fn run_game(
     'main_game: loop {
         ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
         ctx.canvas.clear();
+
         let scene = world.scenes.get_current_scene_mut();
 
         for evt in ctx.events.poll_iter() {
@@ -240,14 +240,26 @@ pub fn run_game(
         if scene.loop_state == LoopState::Run {
             for cell in scene.game_map.render_map.iter_mut() {
                 cell.lit = false;
+
+                cell.visible = cell.visible;
+                cell.ent_size = cell.terrain_size;
+                cell.ent_code = cell.terrain_code;
+            }
+
+            for ent in scene.components.render.values() {
+                let cell = &mut scene.game_map.render_map[ent.index];
+
+                cell.ent_code = ent.sprite_code;
+                cell.ent_size = ent.size;
+                cell.visible = ent.visible;
             }
 
             let player_id = scene.player;
 
-            let pos = scene.components.position.get(&player_id).unwrap();
+            let render_ent = scene.components.render.get(&player_id).unwrap();
 
-            let cx = pos.index % scene.game_map.map_info.column_count;
-            let cy = pos.index / scene.game_map.map_info.column_count;
+            let cx = render_ent.index % scene.game_map.map_info.column_count;
+            let cy = render_ent.index / scene.game_map.map_info.column_count;
 
             fov(&mut scene.game_map, (cx, cy));
 
@@ -274,7 +286,7 @@ pub fn make_game_info() -> (WindowInfo, TileInfo, MapInfo) {
     let map_cols = 30;
     let map_rows = 30;
 
-    let total_tiles = 236;
+    let total_tiles = 235;
     let tile_row_count = 12;
     let orig_w = 16;
     let orig_h = 16;
@@ -286,6 +298,7 @@ pub fn make_game_info() -> (WindowInfo, TileInfo, MapInfo) {
         width: (tile_width * map_cols) + 250,
         height: tile_heigh * map_rows,
         name: String::from("rend"),
+        map_start_x: 0,
     };
 
     let tile_info = TileInfo {
