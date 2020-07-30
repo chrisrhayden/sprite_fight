@@ -130,8 +130,6 @@ pub fn astar(
             let node_position: (isize, isize) =
                 (current_pos.0 + new_pos.0, current_pos.1 + new_pos.1);
 
-            println!("- {:?} {:?}", node_position, end_node.borrow().position);
-
             if node_position.0 < 0
                 || node_position.0 > map_len
                 || node_position.1 < 0

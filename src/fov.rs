@@ -67,17 +67,17 @@ fn recursive_shadowcasting(
     let map_width = shadow_data.column_count;
     let map_height = shadow_data.row_count;
 
-    // move along the columns / x axis
     for cur_col in row..=view_ceiling {
         let yc = -(cur_col);
 
-        // move down the rows / y axis
         for xc in yc..=0 {
-            let grid_x =
-                shadow_data.view_x + xc * shadow_data.xx + yc * shadow_data.xy;
+            let grid_x = shadow_data.view_x
+                + (xc * shadow_data.xx)
+                + (yc * shadow_data.xy);
 
-            let grid_y =
-                shadow_data.view_y + xc * shadow_data.yx + yc * shadow_data.yy;
+            let grid_y = shadow_data.view_y
+                + (xc * shadow_data.yx)
+                + (yc * shadow_data.yy);
 
             let left_block_slope = (xc as f64 - 0.5) / (yc as f64 + 0.5);
             let right_block_slope = (xc as f64 + 0.5) / (yc as f64 - 0.5);
@@ -102,7 +102,7 @@ fn recursive_shadowcasting(
 
             let cel_ind = (grid_x + (map_width * grid_y)) as usize;
 
-            if distance_squer <= view_radius_square {
+            if distance_squer < view_radius_square {
                 let cell = &mut game_map.render_map[cel_ind];
 
                 cell.lit = true;
