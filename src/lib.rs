@@ -27,7 +27,7 @@ use game_map::MapInfo;
 use map_gen::generator::{MapGen, MapType};
 use scenes::{Scene, SceneBuilder, SceneManager};
 use systems::{ai_system::ai_system, input_system::handle_events};
-use tileset::{TileInfo, Tileset};
+use tileset::{SpriteCode, TileInfo, Tileset};
 
 pub struct WindowInfo {
     pub name: String,
@@ -241,9 +241,11 @@ pub fn run_game(
             for cell in scene.game_map.render_map.iter_mut() {
                 cell.lit = false;
 
-                cell.visible = cell.visible;
                 cell.ent_size = cell.terrain_size;
                 cell.ent_code = cell.terrain_code;
+                if cell.terrain_code != SpriteCode::NoSprite {
+                    cell.visible = true;
+                }
             }
 
             for ent in scene.components.render.values() {

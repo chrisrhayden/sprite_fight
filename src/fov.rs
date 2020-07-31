@@ -106,6 +106,7 @@ fn recursive_shadowcasting(
                 let cell = &mut game_map.render_map[cel_ind];
 
                 cell.lit = true;
+                cell.visited = true;
             }
 
             let cur_blocked =

@@ -186,7 +186,6 @@ impl Scene {
         window_info: &WindowInfo,
     ) -> Result<(), Box<dyn Error>> {
         let start_x = window_info.map_start_x;
-        let render_map = &mut self.game_map.render_map;
 
         let column_count = self.game_map.map_info.column_count;
 
