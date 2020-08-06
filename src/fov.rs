@@ -31,7 +31,7 @@ pub fn fov(game_map: &mut GameMap, view_point: (usize, usize)) {
             row_count: game_map.map_info.row_count as isize,
             view_x: view_point.0 as isize,
             view_y: view_point.1 as isize,
-            radius: 7,
+            radius: 5,
             xx: MULT[0][region],
             xy: MULT[1][region],
             yx: MULT[2][region],

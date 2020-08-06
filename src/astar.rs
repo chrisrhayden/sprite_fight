@@ -61,6 +61,7 @@ fn make_path(start_node: Rc<RefCell<Node>>) -> Vec<(isize, isize)> {
     return path;
 }
 
+// this is bad lol
 pub fn astar(
     game_map: &GameMap,
     start: (isize, isize),
@@ -186,5 +187,6 @@ pub fn astar(
         }
     }
 
-    return Err(Box::from("i dont know how we get here"));
+    // i guess we get her if we scan everything and cant find the target?
+    return Err(Box::from("we should not get here"));
 }

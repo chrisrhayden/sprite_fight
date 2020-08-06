@@ -25,7 +25,7 @@ fn carve_room(room: &MapRect, char_map: &mut Vec<char>, column_count: usize) {
             let i = x + (column_count * y);
 
             if char_map[i] != 'Z' {
-                char_map[i] = 'Z';
+                char_map[i] = ' ';
             }
         }
     }
@@ -56,7 +56,7 @@ fn carve_hallways(
         let i = x + (column_count * sy);
 
         if char_map[i] != 'Z' {
-            char_map[i] = 'Z';
+            char_map[i] = ' ';
         }
     }
 
@@ -67,7 +67,7 @@ fn carve_hallways(
         let i = sx + (column_count * y);
 
         if char_map[i] != 'Z' {
-            char_map[i] = 'Z';
+            char_map[i] = ' ';
         }
     }
 }

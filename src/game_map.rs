@@ -1,11 +1,3 @@
-use std::error::Error;
-
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    isize, str,
-};
-
 use crate::{
     components::{Ai, AiType, ComponentStore, EntitySize, Render},
     entitys::Entitys,

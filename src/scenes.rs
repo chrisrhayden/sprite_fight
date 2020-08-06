@@ -70,22 +70,28 @@ pub struct Scene {
 }
 
 impl Scene {
-    fn render_map(
+    fn render_map<'t>(
         &mut self,
         canvas: &mut Canvas<Window>,
-        tileset: &mut dyn Tileset,
+        tileset: &mut Tileset<'t>,
         column_count: usize,
         start_x: i32,
     ) -> Result<(), Box<dyn Error>> {
-        let tile_width = tileset.width() as i32;
-        let tile_height = tileset.height() as i32;
+        let tile_width = tileset.tile_info.width as i32;
+        let tile_height = tileset.tile_info.height as i32;
 
         let mut x: i32 = start_x;
 
         let mut y: i32 = 0 - tile_height;
 
-        let mut dest_rect =
-            Rect::new(x as i32, y as i32, tileset.width(), tileset.height());
+        let mut dest_rect = Rect::new(
+            x as i32,
+            y as i32,
+            tileset.tile_info.width,
+            tileset.tile_info.height,
+        );
+
+        tileset.texture.set_color_mod(250, 250, 250);
 
         for (i, render_cell) in self.game_map.render_map.iter().enumerate() {
             if i % column_count == 0 {
@@ -96,16 +102,13 @@ impl Scene {
             dest_rect.set_x(x);
             dest_rect.set_y(y);
 
-            canvas.set_draw_color(Color::RGB(10, 10, 50));
+            if render_cell.lit && render_cell.ent_char != ' ' {
+                canvas.fill_rect(dest_rect)?;
+                canvas.set_draw_color(Color::RGB(10, 10, 50));
+                let char_rect = tileset.get_char(render_cell.ent_char);
 
-            canvas.fill_rect(dest_rect)?;
-
-            let (texture, char_rect) = tileset.get_char(render_cell.ent_char);
-
-            println!("{:?}", char_rect);
-
-            texture.set_color_mod(250, 250, 250);
-            canvas.copy(texture, char_rect, dest_rect)?;
+                canvas.copy(&tileset.texture, *char_rect, dest_rect)?;
+            }
 
             x += tile_width;
         }
@@ -165,21 +168,20 @@ impl Scene {
         Ok(())
     }
 
-    pub fn render_scene(
+    pub fn render_scene<'t>(
         &mut self,
         texture_creator: &TextureCreator<WindowContext>,
         canvas: &mut Canvas<Window>,
         font: &mut Font,
-        tileset: &mut dyn Tileset,
+        tileset: &mut Tileset<'t>,
         window_info: &WindowInfo,
     ) -> Result<(), Box<dyn Error>> {
         let start_x = window_info.map_start_x;
 
         let column_count = self.game_map.map_info.column_count;
+        let tile_width = tileset.tile_info.width as i32;
 
         self.render_map(canvas, tileset, column_count, start_x)?;
-
-        let tile_width = tileset.width() as i32;
 
         let ui_start_x = start_x + (column_count as i32 * tile_width) + 5;
 

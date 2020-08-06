@@ -1,38 +1,34 @@
 mod astar;
 mod components;
 mod entitys;
-mod font_utils;
 mod fov;
 mod game_map;
 mod map_gen;
 mod scenes;
-mod sprite_set;
 mod systems;
 mod tileset;
 
 // use std::cell::RefCell;
 use std::error::Error;
-use std::rc::Rc;
 
 use sdl2::{
     image::{LoadSurface, Sdl2ImageContext},
     pixels::Color,
-    render::{Canvas, TextureCreator},
+    render::Canvas,
     surface::Surface,
     ttf::{self, Font, Sdl2TtfContext},
-    video::{Window, WindowContext},
+    video::Window,
     EventPump,
 };
 
 use components::{ComponentStore, EntitySize, Health, Name, Render};
 use entitys::Entitys;
-use font_utils::RTFontCache;
 use fov::fov;
 use game_map::MapInfo;
 use map_gen::generator::{MapGen, MapType};
 use scenes::{Scene, SceneBuilder, SceneManager};
 use systems::{ai_system::ai_system, input_system::handle_events};
-use tileset::Tileset;
+use tileset::{TileInfo, Tileset};
 
 pub struct WindowInfo {
     pub name: String,
@@ -50,11 +46,11 @@ pub struct ContextManager {
 }
 
 // contain all the game data in one place
-pub struct WorldState<'a, 'tex, 'font> {
+pub struct WorldState<'tex> {
     pub window_info: WindowInfo,
     pub entitys: Entitys,
     pub scenes: SceneManager,
-    pub tileset: &'a mut dyn Tileset<'tex, 'font>,
+    pub tileset: Tileset<'tex>,
 }
 
 #[derive(PartialEq, Debug)]
@@ -149,16 +145,22 @@ fn init_player(
 
 pub fn run_game<'tex, 'font>(
     window_info: WindowInfo,
+    tile_info: TileInfo,
     map_info: MapInfo,
 ) -> Result<(), Box<dyn Error>> {
     let font_path = "assets/ttf/unscii-16-full.ttf";
-    let texture_path = "assets/png/sprites.png";
+    let texture_path = "assets/png/Potash_10x10.png";
 
     let mut ctx = init_screen(&window_info)?;
 
     let texture_creator = ctx.canvas.texture_creator();
 
-    let mut tileset = RTFontCache::new(&texture_creator);
+    let sprites = Surface::from_file(texture_path)?;
+
+    let sprite_texture =
+        texture_creator.create_texture_from_surface(sprites)?;
+
+    let tileset = Tileset::new(sprite_texture, tile_info);
 
     let mut font = init_font(&ctx._ttf, font_path, 18)?;
 
@@ -168,7 +170,7 @@ pub fn run_game<'tex, 'font>(
         entitys: Entitys::new(),
         scenes: SceneManager::new(),
         window_info,
-        tileset: &mut tileset,
+        tileset,
     };
 
     let mut components = ComponentStore::default();
@@ -198,7 +200,7 @@ pub fn run_game<'tex, 'font>(
         cell.visible = ent.visible;
     }
 
-    // fov(&mut scene.game_map, center);
+    fov(&mut scene.game_map, center);
 
     'main_game: loop {
         ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -219,7 +221,7 @@ pub fn run_game<'tex, 'font>(
 
         if scene.loop_state == LoopState::Run {
             for cell in scene.game_map.render_map.iter_mut() {
-                cell.lit = true;
+                cell.lit = false;
 
                 cell.ent_size = cell.terrain_size;
                 cell.ent_char = cell.terrain_char;
@@ -243,7 +245,7 @@ pub fn run_game<'tex, 'font>(
             let cx = render_ent.index % scene.game_map.map_info.column_count;
             let cy = render_ent.index / scene.game_map.map_info.column_count;
 
-            // fov(&mut scene.game_map, (cx, cy));
+            fov(&mut scene.game_map, (cx, cy));
 
             ai_system(scene);
 
@@ -254,7 +256,7 @@ pub fn run_game<'tex, 'font>(
             &texture_creator,
             &mut ctx.canvas,
             &mut font,
-            world.tileset,
+            &mut world.tileset,
             &world.window_info,
         )?;
 
@@ -264,14 +266,14 @@ pub fn run_game<'tex, 'font>(
     Ok(())
 }
 
-pub fn make_game_info() -> (WindowInfo, MapInfo) {
+pub fn make_game_info() -> (WindowInfo, TileInfo, MapInfo) {
     let map_cols = 30;
     let map_rows = 30;
 
-    let total_tiles = 235;
-    let tile_row_count = 12;
-    let orig_w = 16;
-    let orig_h = 16;
+    let total_tiles = 256;
+    let tile_col_count = 16;
+    let orig_w = 10;
+    let orig_h = 10;
 
     let tile_width = orig_w * 2;
     let tile_heigh = orig_h * 2;
@@ -283,14 +285,14 @@ pub fn make_game_info() -> (WindowInfo, MapInfo) {
         map_start_x: 0,
     };
 
-    // let tile_info = TileInfo {
-    //     orig_w,
-    //     orig_h,
-    //     width: tile_width,
-    //     height: tile_heigh,
-    //     row_count: tile_row_count,
-    //     total_count: total_tiles,
-    // };
+    let tile_info = TileInfo {
+        orig_w,
+        orig_h,
+        width: tile_width,
+        height: tile_heigh,
+        col_count: tile_col_count,
+        total_count: total_tiles,
+    };
 
     let map_cols = map_cols as usize;
     let map_rows = map_rows as usize;
@@ -301,5 +303,5 @@ pub fn make_game_info() -> (WindowInfo, MapInfo) {
         total_count: map_cols * map_rows,
     };
 
-    (window_info, map_info)
+    (window_info, tile_info, map_info)
 }
