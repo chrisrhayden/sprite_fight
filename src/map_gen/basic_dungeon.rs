@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 
 use rand::prelude::*;
 
-use crate::{map_gen::generator::MapRect, tileset::SpriteCode};
+use crate::map_gen::generator::MapRect;
 
 fn new_room(
     rng: &mut ThreadRng,
@@ -19,17 +19,13 @@ fn new_room(
     MapRect::new(x, y, w, h)
 }
 
-fn carve_room(
-    room: &MapRect,
-    sprite_map: &mut Vec<SpriteCode>,
-    column_count: usize,
-) {
+fn carve_room(room: &MapRect, char_map: &mut Vec<char>, column_count: usize) {
     for x in room.x1..=room.x2 {
         for y in room.y1..=room.y2 {
             let i = x + (column_count * y);
 
-            if sprite_map[i] != SpriteCode::Unliving1 {
-                sprite_map[i] = SpriteCode::NoSprite;
+            if char_map[i] != 'Z' {
+                char_map[i] = 'Z';
             }
         }
     }
@@ -39,7 +35,7 @@ fn carve_hallways(
     rng: &mut ThreadRng,
     past_room: &MapRect,
     cur_room: &MapRect,
-    sprite_map: &mut Vec<SpriteCode>,
+    char_map: &mut Vec<char>,
     column_count: usize,
 ) {
     let column_count = column_count;
@@ -59,8 +55,8 @@ fn carve_hallways(
     for x in min_x..=max_x {
         let i = x + (column_count * sy);
 
-        if sprite_map[i] != SpriteCode::Unliving1 {
-            sprite_map[i] = SpriteCode::NoSprite;
+        if char_map[i] != 'Z' {
+            char_map[i] = 'Z';
         }
     }
 
@@ -70,8 +66,8 @@ fn carve_hallways(
     for y in min_y..=max_y {
         let i = sx + (column_count * y);
 
-        if sprite_map[i] != SpriteCode::Unliving1 {
-            sprite_map[i] = SpriteCode::NoSprite;
+        if char_map[i] != 'Z' {
+            char_map[i] = 'Z';
         }
     }
 }
@@ -81,11 +77,11 @@ pub fn basic_gen(
     column_count: usize,
     row_count: usize,
     total_tiles: usize,
-) -> (Vec<SpriteCode>, (usize, usize)) {
-    let mut sprite_map: Vec<SpriteCode> = vec![];
+) -> (Vec<char>, (usize, usize)) {
+    let mut char_map: Vec<char> = vec![];
 
     for _ in 0..total_tiles {
-        sprite_map.push(SpriteCode::Building1);
+        char_map.push('#');
     }
 
     let mut rooms = vec![];
@@ -96,7 +92,7 @@ pub fn basic_gen(
 
     let first = new_room(rng, min_room, max_room, column_count, row_count);
 
-    carve_room(&first, &mut sprite_map, column_count);
+    carve_room(&first, &mut char_map, column_count);
 
     rooms.push(first);
 
@@ -110,28 +106,22 @@ pub fn basic_gen(
             }
         }
 
-        carve_room(&new_room, &mut sprite_map, column_count);
+        carve_room(&new_room, &mut char_map, column_count);
 
         let past_room = rooms.last().unwrap();
 
-        carve_hallways(
-            rng,
-            past_room,
-            &new_room,
-            &mut sprite_map,
-            column_count,
-        );
+        carve_hallways(rng, past_room, &new_room, &mut char_map, column_count);
 
         if rng.gen_ratio(2, 3) {
             let center = new_room.center();
 
             let i = center.0 + (column_count * center.1);
 
-            sprite_map[i] = SpriteCode::Unliving1;
+            char_map[i] = 'Z';
         }
 
         rooms.push(new_room);
     }
 
-    (sprite_map, rooms.first().unwrap().center())
+    (char_map, rooms.first().unwrap().center())
 }

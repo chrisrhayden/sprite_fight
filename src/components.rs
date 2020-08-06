@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::tileset::SpriteCode;
-
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub enum EntitySize {
     Nothing,
@@ -15,7 +13,7 @@ pub struct Render {
     pub size: EntitySize,
     pub index: usize,
     pub visible: bool,
-    pub sprite_code: SpriteCode,
+    pub reper_char: char,
 }
 
 pub struct Selected {

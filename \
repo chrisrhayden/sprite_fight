@@ -10,9 +10,8 @@ mod sprite_set;
 mod systems;
 mod tileset;
 
-// use std::cell::RefCell;
 use std::error::Error;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use sdl2::{
     image::{LoadSurface, Sdl2ImageContext},
@@ -50,11 +49,11 @@ pub struct ContextManager {
 }
 
 // contain all the game data in one place
-pub struct WorldState<'a, 'tex, 'font> {
+pub struct WorldState<'tex, 'font> {
     pub window_info: WindowInfo,
     pub entitys: Entitys,
+    pub tileset: Rc<RefCell<Box<dyn Tileset<'tex, 'font>>>>,
     pub scenes: SceneManager,
-    pub tileset: &'a mut dyn Tileset<'tex, 'font>,
 }
 
 #[derive(PartialEq, Debug)]
@@ -110,6 +109,14 @@ fn init_font<'ttf, 'r>(
     Ok(font)
 }
 
+fn init_world<'tex, 'font>(
+    tileset: Rc<RefCell<Box<dyn Tileset<'tex, 'font>>>>,
+    window_info: WindowInfo,
+    map_info: MapInfo,
+) -> (WorldState<'tex, 'font>, (usize, usize)) {
+    todo!();
+}
+
 fn init_player(
     scene: &mut Scene,
     entitys: &mut Entitys,
@@ -147,7 +154,7 @@ fn init_player(
     );
 }
 
-pub fn run_game<'tex, 'font>(
+pub fn run_game<'tex>(
     window_info: WindowInfo,
     map_info: MapInfo,
 ) -> Result<(), Box<dyn Error>> {
@@ -158,7 +165,10 @@ pub fn run_game<'tex, 'font>(
 
     let texture_creator = ctx.canvas.texture_creator();
 
-    let mut tileset = RTFontCache::new(&texture_creator);
+    let tileset = RTFontCache::new(&texture_creator);
+
+    let tileset: Rc<RefCell<Box<&RTFontCache>>> =
+        Rc::new(RefCell::new(Box::from(&tileset)));
 
     let mut font = init_font(&ctx._ttf, font_path, 18)?;
 
@@ -167,8 +177,8 @@ pub fn run_game<'tex, 'font>(
     let mut world = WorldState {
         entitys: Entitys::new(),
         scenes: SceneManager::new(),
+        tileset,
         window_info,
-        tileset: &mut tileset,
     };
 
     let mut components = ComponentStore::default();
@@ -198,7 +208,7 @@ pub fn run_game<'tex, 'font>(
         cell.visible = ent.visible;
     }
 
-    // fov(&mut scene.game_map, center);
+    fov(&mut scene.game_map, center);
 
     'main_game: loop {
         ctx.canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -219,7 +229,7 @@ pub fn run_game<'tex, 'font>(
 
         if scene.loop_state == LoopState::Run {
             for cell in scene.game_map.render_map.iter_mut() {
-                cell.lit = true;
+                cell.lit = false;
 
                 cell.ent_size = cell.terrain_size;
                 cell.ent_char = cell.terrain_char;
@@ -243,7 +253,7 @@ pub fn run_game<'tex, 'font>(
             let cx = render_ent.index % scene.game_map.map_info.column_count;
             let cy = render_ent.index / scene.game_map.map_info.column_count;
 
-            // fov(&mut scene.game_map, (cx, cy));
+            fov(&mut scene.game_map, (cx, cy));
 
             ai_system(scene);
 
@@ -254,7 +264,7 @@ pub fn run_game<'tex, 'font>(
             &texture_creator,
             &mut ctx.canvas,
             &mut font,
-            world.tileset,
+            world.tileset.clone(),
             &world.window_info,
         )?;
 

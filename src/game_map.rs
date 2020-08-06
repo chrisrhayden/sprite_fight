@@ -6,57 +6,19 @@ use std::{
     isize, str,
 };
 
-use std::convert::TryFrom;
-
 use crate::{
     components::{Ai, AiType, ComponentStore, EntitySize, Render},
     entitys::Entitys,
-    tileset::SpriteCode,
 };
-
-#[allow(dead_code)]
-pub fn load_map_file(
-    map_path: &str,
-) -> Result<(Vec<SpriteCode>, MapInfo), Box<dyn Error>> {
-    let map_info = MapInfo {
-        column_count: 20,
-        row_count: 20,
-        total_count: 20 * 20,
-    };
-
-    let mut sprite_map = vec![];
-
-    let fd = File::open(map_path)?;
-
-    let reader = BufReader::new(fd);
-
-    for line in reader.lines() {
-        let line = line?;
-
-        for num in line.split(",") {
-            let real_num = isize::from_str_radix(num, 10)?;
-
-            let sprite_code = if real_num > 0 {
-                SpriteCode::try_from(real_num as usize)?
-            } else {
-                SpriteCode::NoSprite
-            };
-
-            sprite_map.push(sprite_code);
-        }
-    }
-
-    Ok((sprite_map, map_info))
-}
 
 pub struct RenderCell {
     pub lit: bool,
     pub visible: bool,
     pub visited: bool,
     pub ent_size: EntitySize,
-    pub ent_code: SpriteCode,
+    pub ent_char: char,
     pub terrain_size: EntitySize,
-    pub terrain_code: SpriteCode,
+    pub terrain_char: char,
 }
 
 #[derive(Clone)]
@@ -81,28 +43,13 @@ impl GameMap {
         }
     }
 
-    pub fn load_from_file(
-        &mut self,
-        components: &mut ComponentStore,
-        entitys: &mut Entitys,
-        map_path: &str,
-    ) -> Result<(), Box<dyn Error>> {
-        let (sprite_map, map_info) = load_map_file(map_path)?;
-
-        self.map_info = map_info;
-
-        self.init_map(components, entitys, sprite_map);
-
-        Ok(())
-    }
-
     pub fn init_map(
         &mut self,
         components: &mut ComponentStore,
         entitys: &mut Entitys,
-        sprite_map: Vec<SpriteCode>,
+        char_map: Vec<char>,
     ) {
-        for (index, sprite_code) in sprite_map.iter().enumerate() {
+        for (index, map_char) in char_map.iter().enumerate() {
             let terrain_id = entitys.new_id();
 
             let mut render_cell = RenderCell {
@@ -111,12 +58,12 @@ impl GameMap {
                 visible: false,
                 ent_size: EntitySize::Nothing,
                 terrain_size: EntitySize::Nothing,
-                ent_code: SpriteCode::NoSprite,
-                terrain_code: SpriteCode::NoSprite,
+                ent_char: ' ',
+                terrain_char: ' ',
             };
 
-            match *sprite_code {
-                SpriteCode::Unliving1 => {
+            match map_char {
+                'Z' | 'z' => {
                     let zombie_id = entitys.new_id();
                     render_cell.visible = true;
 
@@ -132,17 +79,17 @@ impl GameMap {
                         Render {
                             index,
                             size: EntitySize::Medium,
-                            sprite_code: SpriteCode::Unliving1,
+                            reper_char: 'Z',
                             visible: true,
                         },
                     );
                 }
 
                 _ => {
-                    if *sprite_code != SpriteCode::NoSprite {
-                        render_cell.terrain_code = *sprite_code;
+                    if *map_char != ' ' {
+                        render_cell.terrain_char = *map_char;
                         render_cell.terrain_size = EntitySize::Medium;
-                        render_cell.ent_code = *sprite_code;
+                        render_cell.ent_char = *map_char;
                         render_cell.ent_size = EntitySize::Medium;
 
                         render_cell.visible = true;

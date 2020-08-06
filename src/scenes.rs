@@ -11,10 +11,8 @@ use sdl2::{
 };
 
 use crate::{
-    components::ComponentStore,
-    game_map::GameMap,
-    tileset::{SpriteCode, Tileset},
-    LoopState, WindowInfo,
+    components::ComponentStore, game_map::GameMap, tileset::Tileset, LoopState,
+    WindowInfo,
 };
 
 pub struct SceneBuilder {
@@ -75,19 +73,19 @@ impl Scene {
     fn render_map(
         &mut self,
         canvas: &mut Canvas<Window>,
-        tileset: &mut Tileset,
+        tileset: &mut dyn Tileset,
         column_count: usize,
         start_x: i32,
     ) -> Result<(), Box<dyn Error>> {
-        let tile_width = tileset.tile_info.width as i32;
-        let tile_height = tileset.tile_info.height as i32;
+        let tile_width = tileset.width() as i32;
+        let tile_height = tileset.height() as i32;
 
-        let mut x = start_x;
+        let mut x: i32 = start_x;
 
-        let mut y = 0 - tile_height;
+        let mut y: i32 = 0 - tile_height;
 
         let mut dest_rect =
-            Rect::new(x, y, tileset.tile_info.width, tileset.tile_info.height);
+            Rect::new(x as i32, y as i32, tileset.width(), tileset.height());
 
         for (i, render_cell) in self.game_map.render_map.iter().enumerate() {
             if i % column_count == 0 {
@@ -95,29 +93,19 @@ impl Scene {
                 y += tile_height;
             }
 
-            if render_cell.lit || render_cell.visited {
-                dest_rect.set_x(x);
-                dest_rect.set_y(y);
+            dest_rect.set_x(x);
+            dest_rect.set_y(y);
 
-                if render_cell.visited && !render_cell.lit {
-                    canvas.set_draw_color(Color::RGB(10, 10, 50));
-                    tileset.texture.set_color_mod(50, 50, 50);
-                } else {
-                    canvas.set_draw_color(Color::RGB(10, 10, 150));
-                    tileset.texture.set_color_mod(250, 250, 250);
-                }
+            canvas.set_draw_color(Color::RGB(10, 10, 50));
 
-                canvas.fill_rect(dest_rect)?;
+            canvas.fill_rect(dest_rect)?;
 
-                if render_cell.ent_code != SpriteCode::NoSprite {
-                    canvas.copy(
-                        &tileset.texture,
-                        tileset.tile_codes[render_cell.ent_code as usize]
-                            .to_owned(),
-                        dest_rect,
-                    )?;
-                }
-            }
+            let (texture, char_rect) = tileset.get_char(render_cell.ent_char);
+
+            println!("{:?}", char_rect);
+
+            texture.set_color_mod(250, 250, 250);
+            canvas.copy(texture, char_rect, dest_rect)?;
 
             x += tile_width;
         }
@@ -182,7 +170,7 @@ impl Scene {
         texture_creator: &TextureCreator<WindowContext>,
         canvas: &mut Canvas<Window>,
         font: &mut Font,
-        tileset: &mut Tileset,
+        tileset: &mut dyn Tileset,
         window_info: &WindowInfo,
     ) -> Result<(), Box<dyn Error>> {
         let start_x = window_info.map_start_x;
@@ -191,7 +179,7 @@ impl Scene {
 
         self.render_map(canvas, tileset, column_count, start_x)?;
 
-        let tile_width = tileset.tile_info.width as i32;
+        let tile_width = tileset.width() as i32;
 
         let ui_start_x = start_x + (column_count as i32 * tile_width) + 5;
 
