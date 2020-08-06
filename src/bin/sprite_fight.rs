@@ -1,4 +1,4 @@
-use sprite_fight::{make_game_info, run_game};
+use sprite_fight::{config::make_game_info, run_game};
 
 fn main() -> Result<(), Box<dyn ::std::error::Error>> {
     let game_info = make_game_info();

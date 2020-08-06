@@ -102,12 +102,15 @@ impl Scene {
             dest_rect.set_x(x);
             dest_rect.set_y(y);
 
-            if render_cell.lit && render_cell.ent_char != ' ' {
-                canvas.fill_rect(dest_rect)?;
+            if render_cell.lit {
                 canvas.set_draw_color(Color::RGB(10, 10, 50));
-                let char_rect = tileset.get_char(render_cell.ent_char);
+                canvas.fill_rect(dest_rect)?;
 
-                canvas.copy(&tileset.texture, *char_rect, dest_rect)?;
+                if render_cell.ent_char != ' ' {
+                    let char_rect = tileset.get_char(render_cell.ent_char);
+
+                    canvas.copy(&tileset.texture, *char_rect, dest_rect)?;
+                }
             }
 
             x += tile_width;

@@ -1,8 +1,10 @@
 mod astar;
 mod components;
+pub mod config;
 mod entitys;
 mod fov;
 mod game_map;
+mod initialize;
 mod map_gen;
 mod scenes;
 mod systems;
@@ -16,17 +18,17 @@ use sdl2::{
     pixels::Color,
     render::Canvas,
     surface::Surface,
-    ttf::{self, Font, Sdl2TtfContext},
+    ttf::Sdl2TtfContext,
     video::Window,
     EventPump,
 };
 
-use components::{ComponentStore, EntitySize, Health, Name, Render};
+use components::ComponentStore;
 use entitys::Entitys;
 use fov::fov;
 use game_map::MapInfo;
 use map_gen::generator::{MapGen, MapType};
-use scenes::{Scene, SceneBuilder, SceneManager};
+use scenes::{SceneBuilder, SceneManager};
 use systems::{ai_system::ai_system, input_system::handle_events};
 use tileset::{TileInfo, Tileset};
 
@@ -60,111 +62,27 @@ pub enum LoopState {
     Wait,
 }
 
-fn init_screen(
-    window_info: &WindowInfo,
-) -> Result<ContextManager, Box<dyn Error>> {
-    let sdl_context = sdl2::init()?;
-    let video_subsystem = sdl_context.video()?;
-
-    let window = video_subsystem
-        .window(&window_info.name, window_info.width, window_info.height)
-        .position_centered()
-        .opengl()
-        .build()
-        .unwrap();
-
-    let mut canvas = window.into_canvas().present_vsync().build()?;
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
-    canvas.present();
-
-    let events = sdl_context.event_pump()?;
-
-    let img_int_flags = sdl2::image::InitFlag::PNG;
-
-    let _img = sdl2::image::init(img_int_flags)?;
-
-    let _ttf = ttf::init()?;
-
-    let ctx = ContextManager {
-        _ttf,
-        canvas,
-        events,
-        _img,
-    };
-
-    return Ok(ctx);
-}
-
-fn init_font<'ttf, 'r>(
-    ttf: &'ttf Sdl2TtfContext,
-    font_path: &str,
-    font_point: u16,
-) -> Result<Font<'ttf, 'r>, Box<dyn Error>> {
-    let font = ttf.load_font(font_path, font_point)?;
-
-    Ok(font)
-}
-
-fn init_player(
-    scene: &mut Scene,
-    entitys: &mut Entitys,
-    center: (usize, usize),
-) {
-    let player_id = entitys.new_id();
-
-    let index = center.0 + (scene.game_map.map_info.column_count * center.1);
-
-    scene.player = player_id;
-
-    scene.components.name.insert(
-        player_id,
-        Name {
-            value: "test player".to_string(),
-        },
-    );
-
-    scene.components.health.insert(
-        player_id,
-        Health {
-            max_value: 10,
-            cur_value: 10,
-        },
-    );
-
-    scene.components.render.insert(
-        player_id,
-        Render {
-            index,
-            reper_char: '@',
-            size: EntitySize::Medium,
-            visible: true,
-        },
-    );
-}
-
 pub fn run_game<'tex, 'font>(
     window_info: WindowInfo,
     tile_info: TileInfo,
     map_info: MapInfo,
 ) -> Result<(), Box<dyn Error>> {
     let font_path = "assets/ttf/unscii-16-full.ttf";
-    let texture_path = "assets/png/Potash_10x10.png";
 
-    let mut ctx = init_screen(&window_info)?;
+    let mut ctx = initialize::init_screen(&window_info)?;
 
     let texture_creator = ctx.canvas.texture_creator();
 
-    let sprites = Surface::from_file(texture_path)?;
+    let mut sprites = Surface::from_file(&tile_info.tile_path)?;
+
+    sprites.set_color_key(true, Color::RGB(255, 0, 255))?;
 
     let sprite_texture =
         texture_creator.create_texture_from_surface(sprites)?;
 
     let tileset = Tileset::new(sprite_texture, tile_info);
 
-    let mut font = init_font(&ctx._ttf, font_path, 18)?;
-
-    // let (mut world, center) = init_world(tileset, window_info, map_info);
+    let mut font = initialize::init_font(&ctx._ttf, font_path, 18)?;
 
     let mut world = WorldState {
         entitys: Entitys::new(),
@@ -182,14 +100,14 @@ pub fn run_game<'tex, 'font>(
         .set_game_map(game_map)
         .set_components(components);
 
-    let scene_id = world.scenes.register_scene(scene_builder);
+    let new_scene = world.scenes.register_scene(scene_builder);
 
-    world.scenes.set_current_scene(scene_id);
+    world.scenes.set_current_scene(new_scene);
 
     let entitys = &mut world.entitys;
     let scene = world.scenes.get_current_scene_mut();
 
-    init_player(scene, entitys, center);
+    initialize::init_player(scene, entitys, center);
 
     for ent in scene.components.render.values() {
         let ent_ind = ent.index;
@@ -264,44 +182,4 @@ pub fn run_game<'tex, 'font>(
     }
 
     Ok(())
-}
-
-pub fn make_game_info() -> (WindowInfo, TileInfo, MapInfo) {
-    let map_cols = 30;
-    let map_rows = 30;
-
-    let total_tiles = 256;
-    let tile_col_count = 16;
-    let orig_w = 10;
-    let orig_h = 10;
-
-    let tile_width = orig_w * 2;
-    let tile_heigh = orig_h * 2;
-
-    let window_info = WindowInfo {
-        width: (tile_width * map_cols) + 250,
-        height: tile_heigh * map_rows,
-        name: String::from("rend"),
-        map_start_x: 0,
-    };
-
-    let tile_info = TileInfo {
-        orig_w,
-        orig_h,
-        width: tile_width,
-        height: tile_heigh,
-        col_count: tile_col_count,
-        total_count: total_tiles,
-    };
-
-    let map_cols = map_cols as usize;
-    let map_rows = map_rows as usize;
-
-    let map_info = MapInfo {
-        column_count: map_cols,
-        row_count: map_rows,
-        total_count: map_cols * map_rows,
-    };
-
-    (window_info, tile_info, map_info)
 }

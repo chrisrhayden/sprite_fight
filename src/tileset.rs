@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use sdl2::{rect::Rect, render::Texture};
 
@@ -16,6 +16,7 @@ pub struct TileInfo {
     pub height: u32,
     pub orig_w: u32,
     pub orig_h: u32,
+    pub tile_path: PathBuf,
 }
 
 fn make_tile_codes(tile_map: &TileInfo) -> HashMap<char, Rect> {
@@ -47,7 +48,6 @@ fn make_tile_codes(tile_map: &TileInfo) -> HashMap<char, Rect> {
         if to_add != ' ' {
             let new_r = Rect::new(x, y, tile_map.orig_w, tile_map.orig_h);
 
-            println!("{:?} {:?}", to_add, new_r);
             // add it to the tile array
             tile_rects.insert(to_add, new_r);
         }

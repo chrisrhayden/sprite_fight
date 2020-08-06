@@ -1,5 +1,7 @@
+// components::{Ai, AiType, ComponentStore, EntitySize, Render},
+
 use crate::{
-    components::{Ai, AiType, ComponentStore, EntitySize, Render},
+    components::{ComponentStore, EntitySize},
     entitys::Entitys,
 };
 
@@ -37,11 +39,11 @@ impl GameMap {
 
     pub fn init_map(
         &mut self,
-        components: &mut ComponentStore,
+        _components: &mut ComponentStore,
         entitys: &mut Entitys,
         char_map: Vec<char>,
     ) {
-        for (index, map_char) in char_map.iter().enumerate() {
+        for map_char in char_map.iter() {
             let terrain_id = entitys.new_id();
 
             let mut render_cell = RenderCell {
@@ -54,39 +56,13 @@ impl GameMap {
                 terrain_char: ' ',
             };
 
-            match map_char {
-                'Z' | 'z' => {
-                    let zombie_id = entitys.new_id();
-                    render_cell.visible = true;
+            if *map_char != ' ' {
+                render_cell.terrain_char = *map_char;
+                render_cell.terrain_size = EntitySize::Medium;
+                render_cell.ent_char = *map_char;
+                render_cell.ent_size = EntitySize::Medium;
 
-                    components.ai.insert(
-                        zombie_id,
-                        Ai {
-                            ai_type: AiType::Basic,
-                        },
-                    );
-
-                    components.render.insert(
-                        zombie_id,
-                        Render {
-                            index,
-                            size: EntitySize::Medium,
-                            reper_char: 'Z',
-                            visible: true,
-                        },
-                    );
-                }
-
-                _ => {
-                    if *map_char != ' ' {
-                        render_cell.terrain_char = *map_char;
-                        render_cell.terrain_size = EntitySize::Medium;
-                        render_cell.ent_char = *map_char;
-                        render_cell.ent_size = EntitySize::Medium;
-
-                        render_cell.visible = true;
-                    }
-                }
+                render_cell.visible = true;
             }
 
             self.terrain_map.push(terrain_id);
